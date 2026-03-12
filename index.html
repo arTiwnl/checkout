@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pagamento via Pix</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        background: linear-gradient(165deg, #f0fdf4 0%, #f8fafc 50%, #ecfdf5 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        padding: 24px;
+        color: #1e293b;
+      }
+
+      header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        font-size: 13px;
+        padding: 12px 16px;
+        color: #166534;
+        font-weight: 500;
+        z-index: 10;
+        border-bottom: 1px solid #bbf7d0;
+        letter-spacing: -0.01em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        background: rgba(240, 253, 244, 0.92);
+      }
+
+      header::before {
+        content: "";
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        background: #22c55e;
+        border-radius: 50%;
+        flex-shrink: 0;
+        box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
+        animation: pulse-dot 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse-dot {
+        0%, 100% { box-shadow: 0 0 6px rgba(34, 197, 94, 0.5); }
+        50% { box-shadow: 0 0 14px rgba(34, 197, 94, 0.8); }
+      }
+
+      .card {
+        margin-top: 68px;
+        width: 100%;
+        max-width: 420px;
+        background: #ffffff;
+        border-radius: 24px;
+        border: 1px solid #bbf7d0;
+        box-shadow:
+          0 0 0 1px rgba(34, 197, 94, 0.03),
+          0 1px 2px rgba(22, 101, 52, 0.04),
+          0 8px 40px rgba(22, 101, 52, 0.06);
+        padding: 40px 32px;
+        text-align: center;
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
+      }
+
+      .card:hover {
+        box-shadow:
+          0 0 0 1px rgba(34, 197, 94, 0.05),
+          0 1px 2px rgba(22, 101, 52, 0.04),
+          0 16px 48px rgba(22, 101, 52, 0.09);
+        transform: translateY(-2px);
+      }
+
+      .logo {
+        width: 96px;
+        margin: 0 auto 20px;
+        opacity: 0.9;
+      }
+
+      h2 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin: 4px 0;
+        color: #1e293b;
+        letter-spacing: -0.025em;
+      }
+
+      h3 {
+        font-size: 0.875rem;
+        color: #94a3b8;
+        font-weight: 500;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+
+      .total {
+        margin-top: 18px;
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .total strong {
+        color: #166534;
+        font-size: 1.6rem;
+        font-weight: 800;
+        display: block;
+        margin-top: 6px;
+        letter-spacing: -0.03em;
+      }
+
+      .divider {
+        width: 100%;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #bbf7d0, transparent);
+        margin: 22px 0;
+      }
+
+      .qrcode-container {
+        margin-top: 20px;
+      }
+
+      .qrcode-container img {
+        border-radius: 14px;
+        border: 2px solid #dbeafe;
+        padding: 10px;
+        background: #ffffff;
+        box-shadow: 0 2px 12px rgba(34, 197, 94, 0.06);
+      }
+
+      .spinner {
+        border: 3px solid #bbf7d0;
+        border-top: 3px solid #22c55e;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        animation: spin 0.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        margin: 24px auto;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .qrcode-container p {
+        color: #94a3b8;
+        font-size: 0.8rem;
+        font-weight: 500;
+      }
+
+      .pix-code {
+        font-size: 0.72rem;
+        background: #f8fafc;
+        padding: 12px 14px;
+        border-radius: 10px;
+        margin-top: 14px;
+        color: #64748b;
+        word-break: break-all;
+        border: 1px solid #e2e8f0;
+        font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+        line-height: 1.5;
+        max-height: 72px;
+        overflow-y: auto;
+        text-align: left;
+      }
+
+      .copy-btn {
+        width: 100%;
+        background: #16a34a;
+        color: #ffffff;
+        border: none;
+        border-radius: 14px;
+        padding: 15px 16px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 14px;
+        transition: all 0.2s ease;
+        letter-spacing: -0.01em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        box-shadow: 0 2px 8px rgba(22, 163, 74, 0.2);
+      }
+
+      .copy-btn:hover {
+        background: #15803d;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(22, 163, 74, 0.3);
+      }
+
+      .copy-btn:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 4px rgba(22, 163, 74, 0.2);
+      }
+
+      .box {
+        margin-top: 26px;
+        padding: 22px;
+        background: #f8fafc;
+        border-radius: 16px;
+        text-align: left;
+        border: 1px solid #e2e8f0;
+      }
+
+      .box h4 {
+        margin: 0 0 14px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #166534;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .step {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 12px 0;
+        font-size: 0.82rem;
+        color: #475569;
+        line-height: 1.5;
+        font-weight: 450;
+      }
+
+      .step img {
+        border-radius: 10px;
+        flex-shrink: 0;
+      }
+
+      .step-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: #166534;
+        color: #ffffff;
+        font-size: 0.72rem;
+        font-weight: 700;
+        flex-shrink: 0;
+        box-shadow: 0 2px 6px rgba(22, 101, 52, 0.2);
+      }
+
+      .success-card {
+        border-color: #86efac !important;
+        background: #ffffff !important;
+      }
+
+      .success-msg {
+        background: #f0fdf4;
+        padding: 22px;
+        border-radius: 16px;
+        color: #166534;
+        font-weight: 600;
+        font-size: 1rem;
+        border: 1px solid #bbf7d0;
+      }
+
+      .success-msg svg {
+        margin-bottom: 8px;
+      }
+
+      .success-id {
+        margin-top: 10px;
+        font-size: 0.78rem;
+        color: #64748b;
+        font-weight: 400;
+        line-height: 1.6;
+      }
+
+      .toast {
+        position: fixed;
+        top: 56px;
+        right: 20px;
+        background: #166534;
+        color: #ffffff;
+        padding: 12px 20px;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        opacity: 0;
+        transform: translateY(-12px);
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        z-index: 999;
+        box-shadow: 0 8px 32px rgba(22, 101, 52, 0.18);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .toast.error {
+        background: #dc2626;
+      }
+
+      .badge-secure {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: #f0fdf4;
+        color: #166534;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 5px 12px;
+        border-radius: 20px;
+        margin: 0 auto 18px;
+        border: 1px solid #bbf7d0;
+        width: fit-content;
+      }
+
+      .badge-secure::before {
+        content: "";
+        width: 5px;
+        height: 5px;
+        background: #22c55e;
+        border-radius: 50%;
+      }
+
+      @media (max-width: 480px) {
+        body {
+          padding: 16px;
+        }
+        .card {
+          padding: 28px 22px;
+          border-radius: 20px;
+        }
+        h2 {
+          font-size: 1.1rem;
+        }
+        .total strong {
+          font-size: 1.35rem;
+        }
+      }
+    </style>
+  </head>
+<script
+  src="https://cdn.utmify.com.br/scripts/utms/latest.js"
+  data-utmify-prevent-xcod-sck
+  data-utmify-prevent-subids
+  async
+  defer
+></script>
+
+<script>
+  window.pixelId = "6944c2ceec7707ecd3c2c34c";
+  var a = document.createElement("script");
+  a.setAttribute("async", "");
+  a.setAttribute("defer", "");
+  a.setAttribute("src", "https://cdn.utmify.com.br/scripts/pixel/pixel.js");
+  document.head.appendChild(a);
+</script>
+
+  <body>
+    <header>Seu pagamento é 100% seguro e protegido. Parabéns por esse lindo gesto de solidariedade!</header>
+
+    <div style="margin-top: 52px; width: 100%; max-width: 420px; text-align: center;">
+      <img
+        src="https://imgur.com/d6jHcSF.png"
+        alt="Banner de seguranca"
+        style="width: 100%; max-width: 420px; border-radius: 16px 16px 0 0; display: block; object-fit: cover;"
+      />
+    </div>
+
+    <div class="card" id="cardBox" style="margin-top: 0; border-radius: 0 0 24px 24px;">
+      <div class="badge-secure">DOAÇÃO 100% SEGURA, VERIFICADA!</div>
+     
+    
+      <h2 id="titulo">Opção Selecionada:</h2>
+      <h3 id="subtitulo">Finalize o pagamento!</h3>
+      <div class="divider"></div>
+      <div class="total" id="valorTotal">
+        Valor total <strong>R$ 0,00</strong>
+      </div>
+
+      <div class="qrcode-container" id="qrcodeBox">
+        <div class="spinner"></div>
+        <p>Gerando QR Code Pix...</p>
+      </div>
+
+      <div class="box" id="infoBox">
+        <h4>Como pagar?</h4>
+        <div class="step">
+          <span class="step-number">1</span>
+          <span>Abra o app do seu banco ou carteira digital.</span>
+        </div>
+        <div class="step">
+          <span class="step-number">2</span>
+          <span>Cole o código Pix no seu app bancário e confirme.</span>
+        </div>
+        <div class="step">
+          <span class="step-number">3</span>
+          <span>O pagamento é aprovado em instantes.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      const API_URL = "https://api.ukpagtech.site/transaction";
+      const API_KEY = "cff5b3fb-175f-11f1-84fd-e0e8d4baa659";
+      let pollTimer = null;
+      let payload = {
+        valor: 500,
+        titulo: "DOANDO O VALOR:",
+        sub: "Finalize o Pagamento",
+        id: "default",
+      };
+
+      function loadInitial() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has("id")) {
+          try {
+            payload = { ...payload, ...JSON.parse(atob(params.get("id"))) };
+          } catch {
+            console.warn("Parâmetro Base64 inválido.");
+          }
+        } else if (params.has("amount")) {
+          payload.valor = parseInt(params.get("amount")) * 100;
+          payload.id = params.get("temp");
+        }
+        document.getElementById("titulo").textContent = payload.titulo;
+        document.getElementById("subtitulo").textContent = payload.sub;
+        document.getElementById(
+          "valorTotal"
+        ).innerHTML = `Valor total <strong>R$ ${(payload.valor / 100)
+          .toFixed(2)
+          .replace(".", ",")}</strong>`;
+      }
+
+      function showToast(msg, isError = false) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.className = "toast show" + (isError ? " error" : "");
+        setTimeout(() => t.classList.remove("show"), 1800);
+      }
+
+      async function copyToClipboard(text) {
+        await navigator.clipboard.writeText(text);
+        showToast("Código Pix copiado!");
+      }
+
+      function renderQRCode(qrcode, id) {
+        const box = document.getElementById("qrcodeBox");
+        box.innerHTML = "";
+        const img = new Image();
+        img.width = 200;
+        img.height = 200;
+        img.style.borderRadius = "12px";
+        img.style.border = "2px solid #f1f5f9";
+        img.style.padding = "8px";
+        img.style.background = "#ffffff";
+        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+          qrcode
+        )}`;
+        box.appendChild(img);
+
+        const code = document.createElement("div");
+        code.className = "pix-code";
+        code.textContent = qrcode;
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copiar código Pix';
+        btn.onclick = () => copyToClipboard(qrcode);
+        box.appendChild(code);
+        box.appendChild(btn);
+      }
+
+      function renderSuccess(id, amount) {
+        const card = document.getElementById("cardBox");
+        const box = document.getElementById("qrcodeBox");
+        const date = new Date().toLocaleString("pt-BR");
+        card.classList.add("success-card");
+        box.innerHTML = `<div class="success-msg">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 8px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          Pagamento Confirmado!
+          <div class="success-id">Transação: ${id}<br>Valor: R$ ${(
+          amount / 100
+        ).toFixed(2)}<br>${date}</div></div>`;
+        document.getElementById("infoBox").innerHTML =
+          '<h4 style="margin:0;text-align:center;font-size:0.9rem;font-weight:600;color:#166534;">Obrigado! Seu pagamento foi aprovado com sucesso.</h4>';
+      }
+
+      async function createTransaction() {
+        const params = new URLSearchParams(window.location.search);
+        // Captura UTMs se existirem na URL
+        const utmData = {};
+        [
+          "utm_source",
+          "utm_medium",
+          "utm_campaign",
+          "utm_content",
+          "utm_term",
+        ].forEach((key) => {
+          const value = params.get(key);
+          if (value) utmData[key] = value;
+        });
+        const visitorId =
+          localStorage.getItem("_utmify_id") || getCookie("_utmify_id");
+        if (visitorId) {
+          // envia pro seu backend junto com o pedido
+          utmData.pixelId = window.pixelId;
+        }
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-API-KEY": API_KEY },
+          body: JSON.stringify({ amount: payload.valor, paymentMethod: "pix", metadata: utmData }),
+        });
+        const data = await res.json();
+        if (data.success && data.result?.id) {
+          localStorage.setItem("transactionId", data.result.id);
+          localStorage.setItem("tempItemId", payload.id);
+          renderQRCode(data.result.pix.qrcode, data.result.id);
+          pollTransaction(data.result.id, data.result.amount);
+        } else {
+          showToast("Erro ao gerar Pix", true);
+        }
+      }
+
+      async function pollTransaction(id, amount) {
+        clearInterval(pollTimer);
+        pollTimer = setInterval(async () => {
+          try {
+            const r = await fetch(`${API_URL}?id=${id}`, {
+              headers: { "X-API-KEY": API_KEY },
+            });
+            const d = await r.json();
+            if (d.result?.status === "paid") {
+              clearInterval(pollTimer);
+              renderSuccess(id, amount);
+            } else if (
+              ["refused", "failed", "cancelled", "expired"].includes(
+                d.result?.status
+              )
+            ) {
+              clearInterval(pollTimer);
+              document.getElementById(
+                "qrcodeBox"
+              ).innerHTML = `<div class="success-msg" style="background:#fef2f2;color:#b91c1c;border-color:#fecaca">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 8px"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                  Pagamento recusado ou expirado<br><span style="font-size:0.78rem;font-weight:400;color:#64748b">Transação: ${id}</span></div>`;
+            }
+          } catch {
+            console.warn("Erro no polling");
+          }
+        }, 4000);
+      }
+
+      async function loadPayment() {
+        const savedItem = localStorage.getItem("tempItemId");
+        const savedTx = localStorage.getItem("transactionId");
+        if (savedItem === payload.id && savedTx) {
+          const r = await fetch(`${API_URL}?id=${savedTx}`, {
+            headers: { "X-API-KEY": API_KEY },
+          });
+          const d = await r.json();
+          if (d.success && d.result?.status === "waiting_payment") {
+            renderQRCode(d.result.pix.qrcode, d.result.id);
+            pollTransaction(savedTx, d.result.amount);
+            return;
+          }
+          if (d.success && d.result?.status === "paid") {
+            renderSuccess(savedTx, d.result.amount);
+            return;
+          }
+        }
+        localStorage.removeItem("transactionId");
+        await createTransaction();
+      }
+
+      window.addEventListener("load", loadInitial);
+      window.addEventListener("load", loadPayment);
+      function getCookie(name) {
+        return document.cookie
+          .split("; ")
+          .find((r) => r.startsWith(name + "="))
+          ?.split("=")[1];
+      }
+    </script>
+  </body>
+</html>
