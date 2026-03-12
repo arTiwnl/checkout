@@ -428,14 +428,19 @@
     <div class="toast" id="toast"></div>
 
     <script>
-      const API_URL = "https://api.ukpagtech.site/transaction";
-      const API_KEY = "cff5b3fb-175f-11f1-84fd-e0e8d4baa659";
+      const API_URL = "https://cashin.safepayments.cloud";
+      const API_KEY = "7ZGlW3ztm+huDp5YJmzInStVVacvSRw7u26KvJnYev3cjQ8bF5ZRhw5KbgWH6IINm9zoxpzV6fjvVvCG4xirRw==";
       let pollTimer = null;
+      let currentTransactionId = null;
       let payload = {
         valor: 500,
         titulo: "DOANDO O VALOR:",
         sub: "Finalize o Pagamento",
         id: "default",
+        payerName: "Cliente",
+        payerDocument: "00000000000",
+        payerEmail: "cliente@email.com",
+        payerPhone: "11999999999",
       };
 
       function loadInitial() {
@@ -450,6 +455,12 @@
           payload.valor = parseInt(params.get("amount")) * 100;
           payload.id = params.get("temp");
         }
+        // Captura dados do pagador se fornecidos na URL
+        if (params.has("name")) payload.payerName = params.get("name");
+        if (params.has("document")) payload.payerDocument = params.get("document");
+        if (params.has("email")) payload.payerEmail = params.get("email");
+        if (params.has("phone")) payload.payerPhone = params.get("phone");
+        
         document.getElementById("titulo").textContent = payload.titulo;
         document.getElementById("subtitulo").textContent = payload.sub;
         document.getElementById(
@@ -471,7 +482,7 @@
         showToast("Código Pix copiado!");
       }
 
-      function renderQRCode(qrcode, id) {
+      function renderQRCode(qrcode, qrCodeBase64, id) {
         const box = document.getElementById("qrcodeBox");
         box.innerHTML = "";
         const img = new Image();
@@ -481,9 +492,12 @@
         img.style.border = "2px solid #f1f5f9";
         img.style.padding = "8px";
         img.style.background = "#ffffff";
-        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
-          qrcode
-        )}`;
+        // Usa o QR Code Base64 se disponível, senão gera via API externa
+        if (qrCodeBase64) {
+          img.src = `data:image/png;base64,${qrCodeBase64}`;
+        } else {
+          img.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrcode)}`;
+        }
         box.appendChild(img);
 
         const code = document.createElement("div");
@@ -515,36 +529,63 @@
       async function createTransaction() {
         const params = new URLSearchParams(window.location.search);
         // Captura UTMs se existirem na URL
-        const utmData = {};
-        [
-          "utm_source",
-          "utm_medium",
-          "utm_campaign",
-          "utm_content",
-          "utm_term",
-        ].forEach((key) => {
-          const value = params.get(key);
-          if (value) utmData[key] = value;
+        const trackingParameters = {};
+        const utmMapping = {
+          "utm_source": "utmSource",
+          "utm_medium": "utmMedium",
+          "utm_campaign": "utmCampaign",
+          "utm_content": "utmContent",
+          "utm_term": "utmTerm"
+        };
+        Object.entries(utmMapping).forEach(([urlKey, apiKey]) => {
+          const value = params.get(urlKey);
+          if (value) trackingParameters[apiKey] = value;
         });
-        const visitorId =
-          localStorage.getItem("_utmify_id") || getCookie("_utmify_id");
-        if (visitorId) {
-          // envia pro seu backend junto com o pedido
-          utmData.pixelId = window.pixelId;
+        if (params.has("src")) trackingParameters.src = params.get("src");
+        if (params.has("sck")) trackingParameters.sck = params.get("sck");
+
+        // Monta o body conforme a API Reflow Payments
+        const requestBody = {
+          payerName: payload.payerName,
+          payerDocument: payload.payerDocument,
+          payerEmail: payload.payerEmail,
+          payerPhone: payload.payerPhone,
+          productName: payload.titulo,
+          productDescription: payload.sub,
+          value: payload.valor,
+          orderId: payload.id,
+        };
+        
+        // Adiciona trackingParameters apenas se houver algum
+        if (Object.keys(trackingParameters).length > 0) {
+          requestBody.trackingParameters = trackingParameters;
         }
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-API-KEY": API_KEY },
-          body: JSON.stringify({ amount: payload.valor, paymentMethod: "pix", metadata: utmData }),
-        });
-        const data = await res.json();
-        if (data.success && data.result?.id) {
-          localStorage.setItem("transactionId", data.result.id);
-          localStorage.setItem("tempItemId", payload.id);
-          renderQRCode(data.result.pix.qrcode, data.result.id);
-          pollTransaction(data.result.id, data.result.amount);
-        } else {
-          showToast("Erro ao gerar Pix", true);
+
+        try {
+          const res = await fetch(`${API_URL}/transaction/qrcode/cashin`, {
+            method: "POST",
+            headers: { 
+              "Content-Type": "application/json", 
+              "Authorization": API_KEY 
+            },
+            body: JSON.stringify(requestBody),
+          });
+          const data = await res.json();
+          
+          if (data.transactionId && data.qrCode) {
+            currentTransactionId = data.transactionId;
+            localStorage.setItem("transactionId", data.transactionId);
+            localStorage.setItem("orderId", data.orderId || payload.id);
+            localStorage.setItem("tempItemId", payload.id);
+            localStorage.setItem("transactionAmount", payload.valor);
+            renderQRCode(data.qrCode, data.qrCodeBase64, data.transactionId);
+            pollTransaction(data.transactionId, payload.valor);
+          } else {
+            showToast(data.message || "Erro ao gerar Pix", true);
+          }
+        } catch (error) {
+          console.error("Erro na requisição:", error);
+          showToast("Erro ao conectar com a API", true);
         }
       }
 
@@ -552,17 +593,16 @@
         clearInterval(pollTimer);
         pollTimer = setInterval(async () => {
           try {
-            const r = await fetch(`${API_URL}?id=${id}`, {
-              headers: { "X-API-KEY": API_KEY },
+            const r = await fetch(`${API_URL}/transaction/get/by/id/${id}`, {
+              headers: { "Authorization": API_KEY },
             });
             const d = await r.json();
-            if (d.result?.status === "paid") {
+            
+            if (d.status === "paid") {
               clearInterval(pollTimer);
-              renderSuccess(id, amount);
+              renderSuccess(id, d.value || amount);
             } else if (
-              ["refused", "failed", "cancelled", "expired"].includes(
-                d.result?.status
-              )
+              ["refused", "failed", "cancelled", "expired", "refunded"].includes(d.status)
             ) {
               clearInterval(pollTimer);
               document.getElementById(
@@ -571,8 +611,8 @@
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 8px"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
                   Pagamento recusado ou expirado<br><span style="font-size:0.78rem;font-weight:400;color:#64748b">Transação: ${id}</span></div>`;
             }
-          } catch {
-            console.warn("Erro no polling");
+          } catch (error) {
+            console.warn("Erro no polling:", error);
           }
         }, 4000);
       }
@@ -580,22 +620,33 @@
       async function loadPayment() {
         const savedItem = localStorage.getItem("tempItemId");
         const savedTx = localStorage.getItem("transactionId");
+        const savedAmount = localStorage.getItem("transactionAmount");
+        
         if (savedItem === payload.id && savedTx) {
-          const r = await fetch(`${API_URL}?id=${savedTx}`, {
-            headers: { "X-API-KEY": API_KEY },
-          });
-          const d = await r.json();
-          if (d.success && d.result?.status === "waiting_payment") {
-            renderQRCode(d.result.pix.qrcode, d.result.id);
-            pollTransaction(savedTx, d.result.amount);
-            return;
-          }
-          if (d.success && d.result?.status === "paid") {
-            renderSuccess(savedTx, d.result.amount);
-            return;
+          try {
+            const r = await fetch(`${API_URL}/transaction/get/by/id/${savedTx}`, {
+              headers: { "Authorization": API_KEY },
+            });
+            const d = await r.json();
+            
+            if (d.status === "pending" || d.status === "waiting_payment") {
+              // A API Reflow não retorna o QR code no GET, precisa criar nova transação
+              // ou usar o QR code salvo anteriormente
+              localStorage.removeItem("transactionId");
+              await createTransaction();
+              return;
+            }
+            if (d.status === "paid") {
+              renderSuccess(savedTx, d.value || parseInt(savedAmount) || payload.valor);
+              return;
+            }
+          } catch (error) {
+            console.warn("Erro ao verificar transação existente:", error);
           }
         }
         localStorage.removeItem("transactionId");
+        localStorage.removeItem("orderId");
+        localStorage.removeItem("transactionAmount");
         await createTransaction();
       }
 
